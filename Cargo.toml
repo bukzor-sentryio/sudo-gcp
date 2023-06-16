@@ -8,3 +8,5 @@ license = "Apache-2.0"
 description = "reserved for future development"
 
 [dependencies]
+clap = { version = "4.3.4", features = ["derive"] }
+reqwest = { version = "0.11.18", features = ["json"] }
