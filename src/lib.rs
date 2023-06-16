@@ -1,7 +1,13 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::{error::Error, fmt::Display, process::Command, str::FromStr, time::Duration};
+use std::{
+    collections::HashSet,
+    fmt::Display,
+    process::{Command, Stdio},
+    str::{from_utf8, from_utf8_unchecked, FromStr},
+    time::Duration,
+};
 
 const DEFAULT_OAUTH_SCOPES: &[&str] = &[
     "openid",
@@ -32,6 +38,18 @@ pub struct GcloudConfig {
     access_token: String,
 }
 
+impl FromStr for GcloudConfig {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (account, access_token) = s.trim().split_once(',').expect("config-helper call failed");
+        Ok(Self {
+            account: account.to_string(),
+            access_token: access_token.to_string(),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Email(String);
 
@@ -44,7 +62,7 @@ impl FromStr for Email {
 }
 
 #[derive(Debug, Clone)]
-pub struct Scopes(Vec<String>);
+pub struct Scopes(HashSet<String>);
 
 impl FromStr for Scopes {
     type Err = String;
@@ -57,8 +75,25 @@ impl FromStr for Scopes {
 
 impl Display for Scopes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let scopes = self.0.join(",");
+        let sorted_scopes: Vec<String> = self.0.iter().map(|s| s.to_string()).collect();
+        let scopes: String = sorted_scopes.join(",");
         write!(f, "{}", scopes)
+    }
+}
+impl Default for Scopes {
+    fn default() -> Self {
+        let owned_scopes: HashSet<String> = DEFAULT_OAUTH_SCOPES
+            .iter()
+            .map(|scope| scope.to_string())
+            .collect();
+        Self(owned_scopes)
+    }
+}
+
+impl Scopes {
+    pub fn append_scopes(&self, additional_scopes: Scopes) -> Self {
+        let default_scopes = Scopes::default();
+        todo!()
     }
 }
 
@@ -86,29 +121,18 @@ impl Default for Lifetime {
     }
 }
 
-#[warn(unused_variables)]
-
-impl Default for Scopes {
-    fn default() -> Self {
-        let owned_scopes: Vec<String> = DEFAULT_OAUTH_SCOPES
-            .iter()
-            .map(|scope| scope.to_string())
-            .collect();
-        Self(owned_scopes)
-    }
-}
-
 pub fn get_gcloud_config() -> GcloudConfig {
-    Command::new("gcloud")
+    let config = Command::new("gcloud")
         .args([
             "config",
             "config-helper",
             "--format",
-            "json(configuration.properties.core.account,credential.access_token)",
+            "csv[no-heading](configuration.properties.core.account,credential.access_token)",
         ])
+        .stderr(Stdio::inherit())
         .output()
         .expect("gcloud call failed");
-    todo!()
+    GcloudConfig::from_str(std::str::from_utf8(&config.stdout).unwrap()).unwrap()
 }
 
 pub fn get_access_token(gcloud_config: GcloudConfig, service_account: Email) {}

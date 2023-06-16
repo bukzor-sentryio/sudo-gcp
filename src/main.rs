@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use sudo_gcp::{Email, Lifetime, Scopes};
+use sudo_gcp::{get_gcloud_config, Email, Lifetime, Scopes};
 
 #[derive(Debug, Parser)]
 #[command(author, version)]
@@ -17,6 +17,9 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    let config = get_gcloud_config();
+    dbg!(config);
     dbg!(args);
     // service account
     // optional scopes
