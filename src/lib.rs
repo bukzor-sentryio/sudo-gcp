@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_OAUTH_SCOPES: &[&str] = &[
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/appengine.admin",
     "https://www.googleapis.com/auth/sqlservice.login",

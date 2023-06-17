@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::{os::unix::process::CommandExt, process::Command};
 
 use sudo_gcp::{get_access_token, get_gcloud_config, Email, Lifetime, Scopes};
 
@@ -17,17 +18,25 @@ struct Args {
     command: Vec<String>,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let args = Args::parse();
 
     let config = get_gcloud_config();
     let access_token =
         get_access_token(&config, &args.service_account, &args.lifetime, &args.scopes);
-    dbg!(args);
-    dbg!(access_token);
-    // dbg!(config);
-    // service account
-    // optional scopes
-    // lifetime
+
+    let mut command_iter = args.command.iter();
+    let command_exe = command_iter.next().unwrap();
+    let command_args: Vec<String> = command_iter.map(|s| s.to_string()).collect();
+
+    Err(Command::new(command_exe)
+        .args(command_args)
+        .env("GOOGLE_OAUTH_ACCESS_TOKEN", &access_token)
+        .env("CLOUDSDK_AUTH_ACCESS_TOKEN", &access_token)
+        .exec()
+        .into())
+
+    // TODO: use keyring (https://crates.io/crates/keyring) to cache the tokens
+    //        and check the timestamps before getting another access token
 }
