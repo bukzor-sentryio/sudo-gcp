@@ -1,2 +1,6 @@
 curl -vv --oauth2-bearer "$(cat token)" 'https://www.googleapis.com/oauth2/v1/userinfo?alt=json'
 curl -vv --oauth2-bearer "$(cat token)" 'https://oauth2.googleapis.com/tokeninfo?access_token='"$(cat token)"
+
+
+this is a super helpful doc that took entirely too long to find:
+https://cloud.google.com/docs/authentication/token-types
