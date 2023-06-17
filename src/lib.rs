@@ -5,9 +5,12 @@ use std::{
     collections::HashSet,
     fmt::Display,
     process::{Command, Stdio},
-    str::{from_utf8, from_utf8_unchecked, FromStr},
+    str::FromStr,
     time::Duration,
 };
+
+use reqwest::{blocking::Client, header::HeaderMap};
+use serde::{Deserialize, Serialize};
 
 const DEFAULT_OAUTH_SCOPES: &[&str] = &[
     "openid",
@@ -29,8 +32,10 @@ const DEFAULT_OAUTH_SCOPES: &[&str] = &[
     "https://www.googleapis.com/auth/admin.directory.user",
     "https://www.googleapis.com/auth/apps.groups.settings",
 ];
+
 const DEFAULT_LIFETIME_SECONDS: u64 = 3600;
 const IAM_API: &str = "https://iamcredentials.googleapis.com/v1";
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug)]
 pub struct GcloudConfig {
@@ -50,7 +55,7 @@ impl FromStr for GcloudConfig {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Email(String);
 
 impl FromStr for Email {
@@ -61,7 +66,13 @@ impl FromStr for Email {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Display for Email {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scopes(HashSet<String>);
 
 impl FromStr for Scopes {
@@ -97,7 +108,7 @@ impl Scopes {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lifetime(Duration);
 
 impl FromStr for Lifetime {
@@ -135,4 +146,47 @@ pub fn get_gcloud_config() -> GcloudConfig {
     GcloudConfig::from_str(std::str::from_utf8(&config.stdout).unwrap()).unwrap()
 }
 
-pub fn get_access_token(gcloud_config: GcloudConfig, service_account: Email) {}
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct TokenRequest {
+    lifetime: String,
+    scope: HashSet<String>,
+}
+
+pub fn get_access_token(
+    gcloud_config: &GcloudConfig,
+    service_account: &Email,
+    lifetime: &Lifetime,
+    scopes: &Scopes,
+) {
+    let client: Client = Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(Duration::from_secs(15))
+        .build()
+        .unwrap();
+
+    let url = format!(
+        "{}/projects/-/serviceAccounts/{}:generateAccessToken",
+        IAM_API, service_account
+    );
+
+    let mut headers = HeaderMap::new();
+    headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
+
+    let token_request = TokenRequest {
+        lifetime: format!("{}s", lifetime.to_string()),
+        scope: scopes.0.clone(),
+    };
+
+    let request = client
+        .post(url)
+        .bearer_auth(gcloud_config.access_token.clone())
+        .headers(headers)
+        .json(&token_request);
+
+    dbg!(&request);
+    let response = request.send().unwrap();
+
+    dbg!(&token_request);
+    dbg!(&response);
+    dbg!(&response.text());
+}
