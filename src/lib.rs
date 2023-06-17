@@ -152,12 +152,19 @@ struct TokenRequest {
     scope: HashSet<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TokenResponse {
+    access_token: String,
+    expire_time: String,
+}
+
 pub fn get_access_token(
     gcloud_config: &GcloudConfig,
     service_account: &Email,
     lifetime: &Lifetime,
     scopes: &Scopes,
-) {
+) -> String {
     let client: Client = Client::builder()
         .user_agent(USER_AGENT)
         .timeout(Duration::from_secs(15))
@@ -183,10 +190,6 @@ pub fn get_access_token(
         .headers(headers)
         .json(&token_request);
 
-    dbg!(&request);
-    let response = request.send().unwrap();
-
-    dbg!(&token_request);
-    dbg!(&response);
-    dbg!(&response.text());
+    let response: TokenResponse = request.send().unwrap().json().unwrap();
+    response.access_token
 }

@@ -11,8 +11,10 @@ struct Args {
     #[arg(short, long, default_value_t = Scopes::default())]
     scopes: Scopes,
     /// Lifetime of access token in seconds
-    #[arg(long, short, default_value_t = Lifetime::default())]
+    #[arg(long, default_value_t = Lifetime::default())]
     lifetime: Lifetime,
+    /// Command to run under elevated privileges
+    command: Vec<String>,
 }
 
 fn main() {
@@ -22,9 +24,9 @@ fn main() {
     let config = get_gcloud_config();
     let access_token =
         get_access_token(&config, &args.service_account, &args.lifetime, &args.scopes);
+    dbg!(args);
     dbg!(access_token);
     // dbg!(config);
-    // dbg!(args);
     // service account
     // optional scopes
     // lifetime
