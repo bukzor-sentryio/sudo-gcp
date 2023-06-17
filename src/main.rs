@@ -11,10 +11,13 @@ struct Args {
     /// Comma separated list of oauth scopes
     #[arg(short, long, default_value_t = Scopes::default())]
     scopes: Scopes,
+    /// Add scopes in addition to the default
+    #[arg(short, long)]
+    append_scopes: Option<Scopes>,
     /// Lifetime of access token in seconds
     #[arg(long, default_value_t = Lifetime::default())]
     lifetime: Lifetime,
-    /// Command to run under elevated privileges
+    /// Command to run with temporary elevated privileges
     command: Vec<String>,
 }
 
@@ -32,8 +35,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Err(Command::new(command_exe)
         .args(command_args)
-        .env("GOOGLE_OAUTH_ACCESS_TOKEN", &access_token)
-        .env("CLOUDSDK_AUTH_ACCESS_TOKEN", &access_token)
+        .env("GOOGLE_OAUTH_ACCESS_TOKEN", access_token.as_ref())
+        .env("CLOUDSDK_AUTH_ACCESS_TOKEN", access_token.as_ref())
         .exec()
         .into())
 
