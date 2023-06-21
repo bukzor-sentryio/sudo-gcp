@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = get_gcloud_config();
     let access_token =
-        get_access_token(&config, &args.service_account, &args.lifetime, &args.scopes);
+        get_access_token(&config, &args.service_account, &args.lifetime, &args.scopes)?;
 
     let mut command_iter = args.command.iter();
     let command_exe = command_iter.next().unwrap();

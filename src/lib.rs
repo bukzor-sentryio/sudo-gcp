@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use keyring::Entry;
 use reqwest::{blocking::Client, header::HeaderMap};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 // const DEFAULT_OAUTH_SCOPES: &[&str] = &[
 //     "openid",
@@ -57,6 +58,12 @@ impl AsRef<str> for AccessToken {
     }
 }
 
+impl From<String> for AccessToken {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
 #[derive(Debug)]
 pub struct GcloudConfig {
     _account: String,
@@ -99,7 +106,7 @@ impl Display for Email {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Scopes(HashSet<String>);
 
 impl FromStr for Scopes {
@@ -197,17 +204,65 @@ struct TokenResponse {
     expire_time: DateTime<Utc>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct StoredSecret {
+    access_token: AccessToken,
+    scopes: Scopes,
+    expire_time: DateTime<Utc>,
+}
+
+#[derive(Error, Debug)]
+enum TokenError {
+    #[error("keyring error")]
+    Keyring(#[from] keyring::Error),
+    #[error("token scopes do not match")]
+    NonEqualScopes,
+    #[error("token has expired")]
+    Expired,
+}
+
 pub fn get_access_token(
     gcloud_config: &GcloudConfig,
     service_account: &Email,
     lifetime: &Lifetime,
     scopes: &Scopes,
-) -> AccessToken {
+) -> anyhow::Result<AccessToken> {
+    let stored_secret = match get_token_from_keyring(service_account) {
+        Ok(secret) => {
+            if &secret.scopes != scopes {
+                println!("Scopes are not equal, getting a new token!");
+                get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+            }
+
+            if secret.expire_time <= Utc::now() {
+                println!("Token has expired, getting a new one!");
+                get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+            }
+            secret
+        }
+        Err(error) => match error {
+            keyring::Error::NoEntry => {
+                get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?
+            }
+            other_error => panic!("failed to get access token: {:?}", other_error),
+        },
+    };
+
+    // TODO: do not save the token every time
+    save_token_to_keyring(service_account, &stored_secret)?;
+    Ok(stored_secret.access_token)
+}
+
+fn get_token_from_gcloud(
+    service_account: &Email,
+    lifetime: &Lifetime,
+    scopes: &Scopes,
+    gcloud_config: &GcloudConfig,
+) -> anyhow::Result<StoredSecret> {
     let client: Client = Client::builder()
         .user_agent(USER_AGENT)
         .timeout(Duration::from_secs(15))
-        .build()
-        .unwrap();
+        .build()?;
 
     let url = format!(
         "{}/projects/-/serviceAccounts/{}:generateAccessToken",
@@ -215,7 +270,7 @@ pub fn get_access_token(
     );
 
     let mut headers = HeaderMap::new();
-    headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
+    headers.insert(reqwest::header::ACCEPT, "application/json".parse()?);
 
     let token_request = TokenRequest {
         lifetime: lifetime.clone(),
@@ -228,19 +283,42 @@ pub fn get_access_token(
         .headers(headers)
         .json(&token_request);
 
-    let response: TokenResponse = request.send().unwrap().json().unwrap();
-    save_token_to_keyring(service_account, &response).unwrap();
-    response.access_token
+    let response: TokenResponse = request.send()?.json()?;
+
+    Ok(StoredSecret {
+        access_token: response.access_token,
+        scopes: scopes.clone(),
+        expire_time: response.expire_time,
+    })
+}
+
+fn get_token_from_keyring(service_account: &Email) -> Result<StoredSecret, keyring::Error> {
+    let entry = Entry::new(env!("CARGO_PKG_NAME"), &service_account.0)?;
+    match entry.get_password() {
+        Ok(s) => {
+            let stored_secret: StoredSecret =
+                serde_json::from_str(&s).expect("failed to parse json from keyring");
+            Ok(stored_secret)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn delete_token_from_keyring(service_account: &Email) -> anyhow::Result<AccessToken> {
+    todo!()
 }
 
 fn save_token_to_keyring(
     service_account: &Email,
-    token_response: &TokenResponse,
-) -> keyring::Result<()> {
-    let secret_entry =
-        serde_json::to_string(token_response).expect("failed to serialize json response to string");
+    stored_secret: &StoredSecret,
+) -> anyhow::Result<()> {
+    println!("Saving token to OS keyring!");
+    let secret_entry = serde_json::to_string(stored_secret)?;
     let entry = Entry::new(env!("CARGO_PKG_NAME"), &service_account.0)?;
-    entry.set_password(&secret_entry)
+    match entry.set_password(&secret_entry) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 // TODO: support delegate chains? https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
