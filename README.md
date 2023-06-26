@@ -34,3 +34,10 @@ scopes = [
 lifetime = 3600
 
 ```
+
+## TODO
+
+- handle configuration via environment variables and cli options
+  - cli > env vars > config
+- handle service account delegate chains
+- 
