@@ -1,1 +1,36 @@
-Reserved for near future development.
+# Sudo GCP
+
+## Configuration
+
+- Looks for a `sudo-gcp.toml` file in the current working directory.
+
+```toml
+service_account = "my-service-account@my-project.iam.gserviceaccount.com"
+
+# Optional scopes if not provided a default is used
+scopes = [
+   "openid",
+   "https://www.googleapis.com/auth/userinfo.email",
+   "https://www.googleapis.com/auth/userinfo.profile",
+   "https://www.googleapis.com/auth/cloud-platform",
+   "https://www.googleapis.com/auth/appengine.admin",
+   "https://www.googleapis.com/auth/sqlservice.login",
+   "https://www.googleapis.com/auth/compute",
+   "https://www.googleapis.com/auth/gmail.settings.basic",
+   "https://www.googleapis.com/auth/gmail.settings.sharing",
+   "https://www.googleapis.com/auth/chrome.management.policy",
+   "https://www.googleapis.com/auth/cloud-platform",
+   "https://www.googleapis.com/auth/admin.directory.customer",
+   "https://www.googleapis.com/auth/admin.directory.domain",
+   "https://www.googleapis.com/auth/admin.directory.group",
+   "https://www.googleapis.com/auth/admin.directory.orgunit",
+   "https://www.googleapis.com/auth/admin.directory.rolemanagement",
+   "https://www.googleapis.com/auth/admin.directory.userschema",
+   "https://www.googleapis.com/auth/admin.directory.user",
+   "https://www.googleapis.com/auth/apps.groups.settings",
+ ]
+
+# Optional lifetime if not provided a default is used
+lifetime = 3600
+
+```
