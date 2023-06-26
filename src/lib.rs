@@ -10,29 +10,6 @@ use chrono::{DateTime, Utc};
 use keyring::Entry;
 use reqwest::{blocking::Client, header::HeaderMap};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-// const DEFAULT_OAUTH_SCOPES: &[&str] = &[
-//     "openid",
-//     "https://www.googleapis.com/auth/userinfo.email",
-//     "https://www.googleapis.com/auth/userinfo.profile",
-//     "https://www.googleapis.com/auth/cloud-platform",
-//     "https://www.googleapis.com/auth/appengine.admin",
-//     "https://www.googleapis.com/auth/sqlservice.login",
-//     "https://www.googleapis.com/auth/compute",
-//     "https://www.googleapis.com/auth/gmail.settings.basic",
-//     "https://www.googleapis.com/auth/gmail.settings.sharing",
-//     "https://www.googleapis.com/auth/chrome.management.policy",
-//     "https://www.googleapis.com/auth/cloud-platform",
-//     "https://www.googleapis.com/auth/admin.directory.customer",
-//     "https://www.googleapis.com/auth/admin.directory.domain",
-//     "https://www.googleapis.com/auth/admin.directory.group",
-//     "https://www.googleapis.com/auth/admin.directory.orgunit",
-//     "https://www.googleapis.com/auth/admin.directory.rolemanagement",
-//     "https://www.googleapis.com/auth/admin.directory.userschema",
-//     "https://www.googleapis.com/auth/admin.directory.user",
-//     "https://www.googleapis.com/auth/apps.groups.settings",
-// ];
 
 const DEFAULT_OAUTH_SCOPES: &[&str] = &["https://www.googleapis.com/auth/cloud-platform"];
 
@@ -143,37 +120,43 @@ impl Scopes {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Lifetime(Duration);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Lifetime(u64);
 
-impl Serialize for Lifetime {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
+// impl Serialize for Lifetime {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         serializer.serialize_u64(self.0.as_secs())
+//     }
+// }
 
-impl FromStr for Lifetime {
-    type Err = String;
+// impl FromStr for Lifetime {
+//     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let trimmed_s = s.trim_end_matches('s');
-        let seconds: u64 = trimmed_s.parse::<u64>().expect("failed to convert number");
-        Ok(Self(Duration::from_secs(seconds)))
-    }
-}
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let trimmed_s = s.trim_end_matches('s');
+//         let seconds: u64 = trimmed_s.parse::<u64>().expect("failed to convert number");
+//         Ok(Self(Duration::from_secs(seconds)))
+//     }
+// }
+
+// impl From<u64> for Lifetime {
+//     fn from(value: u64) -> Self {
+//         Self(Duration::from_secs(value))
+//     }
+// }
 
 impl Display for Lifetime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}s", self.0.as_secs())
+        write!(f, "{}s", self.0)
     }
 }
 
 impl Default for Lifetime {
     fn default() -> Self {
-        Self(Duration::from_secs(DEFAULT_LIFETIME_SECONDS))
+        Self(DEFAULT_LIFETIME_SECONDS)
     }
 }
 
@@ -193,7 +176,7 @@ pub fn get_gcloud_config() -> GcloudConfig {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct TokenRequest {
-    lifetime: Lifetime,
+    lifetime: String,
     scope: Scopes,
 }
 
@@ -211,46 +194,42 @@ pub struct StoredSecret {
     expire_time: DateTime<Utc>,
 }
 
-#[derive(Error, Debug)]
-enum TokenError {
-    #[error("keyring error")]
-    Keyring(#[from] keyring::Error),
-    #[error("token scopes do not match")]
-    NonEqualScopes,
-    #[error("token has expired")]
-    Expired,
-}
-
 pub fn get_access_token(
     gcloud_config: &GcloudConfig,
     service_account: &Email,
     lifetime: &Lifetime,
     scopes: &Scopes,
 ) -> anyhow::Result<AccessToken> {
-    let stored_secret = match get_token_from_keyring(service_account) {
-        Ok(secret) => {
-            if &secret.scopes != scopes {
+    let stored_secret = get_token_from_keyring(service_account);
+    match stored_secret {
+        Ok(s) => {
+            if &s.scopes != scopes {
                 println!("Scopes are not equal, getting a new token!");
-                get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                let new_token =
+                    get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                save_token_to_keyring(service_account, &new_token)?;
+                return Ok(new_token.access_token);
             }
 
-            if secret.expire_time <= Utc::now() {
+            if s.expire_time <= Utc::now() {
                 println!("Token has expired, getting a new one!");
-                get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                let new_token =
+                    get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                save_token_to_keyring(service_account, &new_token)?;
+                return Ok(new_token.access_token);
             }
-            secret
+            return Ok(s.access_token);
         }
-        Err(error) => match error {
+        Err(e) => match e {
             keyring::Error::NoEntry => {
-                get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?
+                let new_token =
+                    get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                save_token_to_keyring(service_account, &new_token)?;
+                return Ok(new_token.access_token);
             }
             other_error => panic!("failed to get access token: {:?}", other_error),
         },
-    };
-
-    // TODO: do not save the token every time
-    save_token_to_keyring(service_account, &stored_secret)?;
-    Ok(stored_secret.access_token)
+    }
 }
 
 fn get_token_from_gcloud(
@@ -273,7 +252,7 @@ fn get_token_from_gcloud(
     headers.insert(reqwest::header::ACCEPT, "application/json".parse()?);
 
     let token_request = TokenRequest {
-        lifetime: lifetime.clone(),
+        lifetime: format!("{}", lifetime),
         scope: scopes.clone(),
     };
 
