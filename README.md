@@ -1,43 +1,34 @@
 # Sudo GCP
 
-## Configuration
+This tool helps with running Google Cloud commands with temporary elevated
+privileges.
 
-- Looks for a `sudo-gcp.toml` file in the current working directory.
+## Setup
 
-```toml
-service_account = "my-service-account@my-project.iam.gserviceaccount.com"
+1. define a service account to be the holder of your elevated privileges
+1. grant elevated privileges to that service account
+1. define who should be elegible to temporarily gain those privileges
+   - we use a google group with a "role-gcp-sudo-" prefixed group name
+1. assign those users the `roles/iam.workloadIdentityUser` role, bound to that
+   service account
 
-# Optional scopes if not provided a default is used
-scopes = [
-   "openid",
-   "https://www.googleapis.com/auth/userinfo.email",
-   "https://www.googleapis.com/auth/userinfo.profile",
-   "https://www.googleapis.com/auth/cloud-platform",
-   "https://www.googleapis.com/auth/appengine.admin",
-   "https://www.googleapis.com/auth/sqlservice.login",
-   "https://www.googleapis.com/auth/compute",
-   "https://www.googleapis.com/auth/gmail.settings.basic",
-   "https://www.googleapis.com/auth/gmail.settings.sharing",
-   "https://www.googleapis.com/auth/chrome.management.policy",
-   "https://www.googleapis.com/auth/cloud-platform",
-   "https://www.googleapis.com/auth/admin.directory.customer",
-   "https://www.googleapis.com/auth/admin.directory.domain",
-   "https://www.googleapis.com/auth/admin.directory.group",
-   "https://www.googleapis.com/auth/admin.directory.orgunit",
-   "https://www.googleapis.com/auth/admin.directory.rolemanagement",
-   "https://www.googleapis.com/auth/admin.directory.userschema",
-   "https://www.googleapis.com/auth/admin.directory.user",
-   "https://www.googleapis.com/auth/apps.groups.settings",
- ]
+## Usage
 
-# Optional lifetime if not provided a default is used
-lifetime = 3600
+Currently only a configuration file is supported. After creating the necessary
+configuration file (see [example config](doc/example-config.toml) for full
+listing), wrap commands that need elevated privileges with the `sudo-gcp`
+command, similar in usage to
+[`sudo`](https://man7.org/linux/man-pages/man8/sudo.8.html).
 
+```sh
+cargo install sudo-gcp
+
+echo > sudo-gcp.toml 'service_account = "my-service-account@my-project.iam.gserviceaccount.com"'
+sudo-gcp terraform plan
+sudo-gcp gcloud compute instances list
 ```
 
-## TODO
+## Configuration
 
-- handle configuration via environment variables and cli options
-  - cli > env vars > config
-- handle service account delegate chains
-- 
+Currently the command only looks for a `sudo-gcp.toml` file in the current
+working directory. More flexibility commong soon.
