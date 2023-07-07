@@ -3,7 +3,10 @@
 # Sudo GCP
 
 This tool helps with running Google Cloud commands with temporary elevated
-privileges.
+privileges using short-lived OAuth access tokens.
+
+Access tokens are stored in the OS's keychain/secret store and reused if they have 
+matching scopes and are not expired for subsequent commands.
 
 ## Setup
 
