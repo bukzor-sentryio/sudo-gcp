@@ -176,6 +176,8 @@ pub fn get_gcloud_config() -> GcloudConfig {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct TokenRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delegates: Option<Vec<Email>>,
     lifetime: String,
     scope: Scopes,
 }
@@ -183,6 +185,7 @@ struct TokenRequest {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TokenResponse {
+    delegates: Option<Vec<Email>>,
     access_token: AccessToken,
     expire_time: DateTime<Utc>,
 }
@@ -196,6 +199,7 @@ pub struct StoredSecret {
 
 pub fn get_access_token(
     gcloud_config: &GcloudConfig,
+    delegates: Option<Vec<Email>>,
     service_account: &Email,
     lifetime: &Lifetime,
     scopes: &Scopes,
@@ -205,25 +209,43 @@ pub fn get_access_token(
         Ok(s) => {
             if &s.scopes != scopes {
                 println!("Scopes are not equal, getting a new token!");
-                let new_token =
-                    get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                let new_token = get_token_from_gcloud(
+                    service_account,
+                    delegates,
+                    lifetime,
+                    scopes,
+                    gcloud_config,
+                )?;
                 save_token_to_keyring(service_account, &new_token)?;
                 return Ok(new_token.access_token);
             }
 
             if s.expire_time <= Utc::now() {
                 println!("Token has expired, getting a new one!");
-                let new_token =
-                    get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                let new_token = get_token_from_gcloud(
+                    service_account,
+                    delegates,
+                    lifetime,
+                    scopes,
+                    gcloud_config,
+                )?;
                 save_token_to_keyring(service_account, &new_token)?;
                 return Ok(new_token.access_token);
             }
+
+            // TODO: check for delegates equality
+
             return Ok(s.access_token);
         }
         Err(e) => match e {
             keyring::Error::NoEntry => {
-                let new_token =
-                    get_token_from_gcloud(service_account, lifetime, scopes, gcloud_config)?;
+                let new_token = get_token_from_gcloud(
+                    service_account,
+                    delegates,
+                    lifetime,
+                    scopes,
+                    gcloud_config,
+                )?;
                 save_token_to_keyring(service_account, &new_token)?;
                 return Ok(new_token.access_token);
             }
@@ -234,6 +256,7 @@ pub fn get_access_token(
 
 fn get_token_from_gcloud(
     service_account: &Email,
+    delegates: Option<Vec<Email>>,
     lifetime: &Lifetime,
     scopes: &Scopes,
     gcloud_config: &GcloudConfig,
@@ -254,6 +277,7 @@ fn get_token_from_gcloud(
     let token_request = TokenRequest {
         lifetime: format!("{}", lifetime),
         scope: scopes.clone(),
+        delegates,
     };
 
     let request = client

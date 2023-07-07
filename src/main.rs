@@ -12,6 +12,7 @@ use sudo_gcp::{get_access_token, get_gcloud_config, Email, Lifetime, Scopes};
 #[derive(Debug, Deserialize)]
 struct Settings {
     service_account: Email,
+    delegates: Option<Vec<Email>>,
     #[serde(default)]
     scopes: Scopes,
     #[serde(default)]
@@ -58,6 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let access_token = get_access_token(
         &config,
+        settings.delegates,
         &settings.service_account,
         &settings.lifetime,
         &settings.scopes,
