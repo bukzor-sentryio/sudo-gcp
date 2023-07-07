@@ -5,6 +5,7 @@ use std::{
 };
 
 use clap::Parser;
+use config::{Config, Environment, File, FileFormat};
 use serde::Deserialize;
 use sudo_gcp::{get_access_token, get_gcloud_config, Email, Lifetime, Scopes};
 
@@ -41,11 +42,9 @@ struct Args {
 
 fn get_settings<P: AsRef<Path>>(path: P) -> Result<Settings, config::ConfigError> {
     let settings_file_path = path.as_ref().to_str().unwrap();
-    let settings = config::Config::builder()
-        .add_source(config::File::new(
-            settings_file_path,
-            config::FileFormat::Toml,
-        ))
+    let settings = Config::builder()
+        .add_source(File::new(settings_file_path, FileFormat::Toml))
+        .add_source(Environment::with_prefix("sudogcp"))
         .build()?;
     settings.try_deserialize::<Settings>()
 }
@@ -74,7 +73,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .env("CLOUDSDK_AUTH_ACCESS_TOKEN", access_token.as_ref())
         .exec()
         .into())
-
-    // TODO: use keyring (https://crates.io/crates/keyring) to cache the tokens
-    //        and check the timestamps before getting another access token
 }

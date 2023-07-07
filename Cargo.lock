@@ -1755,7 +1755,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "sudo-gcp"
-version = "0.1.0"
+version = "0.2.0-alpha.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1766,7 +1766,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror",
 ]
 
 [[package]]

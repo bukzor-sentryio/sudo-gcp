@@ -283,9 +283,9 @@ fn get_token_from_keyring(service_account: &Email) -> Result<StoredSecret, keyri
     }
 }
 
-fn delete_token_from_keyring(service_account: &Email) -> anyhow::Result<AccessToken> {
-    todo!()
-}
+// fn delete_token_from_keyring(service_account: &Email) -> anyhow::Result<AccessToken> {
+//     todo!()
+// }
 
 fn save_token_to_keyring(
     service_account: &Email,
