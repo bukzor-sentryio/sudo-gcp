@@ -7,7 +7,7 @@ privileges.
 
 1. define a service account to be the holder of your elevated privileges
 1. grant elevated privileges to that service account
-1. define who should be elegible to temporarily gain those privileges
+1. define who should be eligible to temporarily gain those privileges
    - we use a google group with a "role-gcp-sudo-" prefixed group name
 1. assign those users the `roles/iam.workloadIdentityUser` role, bound to that
    service account
