@@ -1,1 +1,7 @@
 /target
+
+# sudo-gcp configuration file
+sudo-gcp.toml
+
+# 1Password configuration directory
+.op/
