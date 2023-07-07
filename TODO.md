@@ -3,19 +3,12 @@
 # m0 -- MVP
 
 - cli options
-- handle configuration of defaults via:
-  1. env vars
 - documentation
 - tests
-- Usage:
-  ```
-  export SUDOGCP_SERVICEACCOUNT=my-service-account@my-project.iam.gserviceaccount.com
-  sudo-gcp terraform plan
-  sudo-gcp gcloud compute instances list
-  ```
 
 # mFuture -- fine polish
 
+- set a check for a minimun expiration (don't reuse a token if it's about to expire)
 - handle service account delegate chains
   - workaround: wrap sudo-gcp an additional time for each segment of the chain
 - 1. $PWD config

@@ -5,7 +5,6 @@
 This tool helps with running Google Cloud commands with temporary elevated
 privileges using short-lived OAuth access tokens.
 
-```suggestion
 `sudo-gcp` securely caches access tokens using the operating system's secret-store/keychain, and
 will reuse matching non-expired tokens on subsequent calls. 
 
@@ -33,9 +32,10 @@ that need elevated privileges with the `sudo-gcp` command, similar in
 usage to [`sudo`](https://man7.org/linux/man-pages/man8/sudo.8.html).
 
 ```sh
-cargo install sudo-gcp
-
+# create a minimal configuration file if it does not already exist
 echo > sudo-gcp.toml 'service_account = "my-service-account@my-project.iam.gserviceaccount.com"'
+
+# run your commands
 sudo-gcp terraform plan
 sudo-gcp gcloud compute instances list
 ```
