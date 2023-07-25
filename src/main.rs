@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let settings = get_settings(args.config_file)?;
 
-    let config = get_gcloud_config();
+    let config = get_gcloud_config()?;
 
     let access_token = get_access_token(
         &config,

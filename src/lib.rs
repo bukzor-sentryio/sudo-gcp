@@ -171,8 +171,8 @@ impl Default for Lifetime {
     }
 }
 
-pub fn get_gcloud_config() -> GcloudConfig {
-    let config = Command::new("gcloud")
+pub fn get_gcloud_config() -> anyhow::Result<GcloudConfig> {
+    let proc = Command::new("gcloud")
         .args([
             "config",
             "config-helper",
@@ -182,7 +182,11 @@ pub fn get_gcloud_config() -> GcloudConfig {
         .stderr(Stdio::inherit())
         .output()
         .expect("gcloud call failed");
-    GcloudConfig::from_str(std::str::from_utf8(&config.stdout).unwrap()).unwrap()
+
+    let text = std::str::from_utf8(&proc.stdout)?;
+    let config = GcloudConfig::from_str(text).map_err(|e| anyhow!(e));
+    dbg!(&config);
+    config
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -298,14 +302,15 @@ fn get_token_from_gcloud(
         .json(&token_request);
 
     let response = request.send()?;
-    let response_text = &response.text();
-    let response_json = &response.json::<TokenResponse>();
-    let token_response: &TokenResponse = match &response_json {
+    let response_text = response.text()?;
+    let token_response: TokenResponse = match serde_json::from_str(&response_text) {
         Ok(r) => r,
-        Err(e) => {
-            dbg!(e);
-            dbg!(&response.text());
-            return Err(anyhow!("Error parsing JSON: {}", e));
+        Err(err) => {
+            return Err(anyhow!(
+                "{}: failed to parse response:\n\t{}",
+                err,
+                response_text.replace("\n", "\n\t"),
+            ));
         }
     };
 
