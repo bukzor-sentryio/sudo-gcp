@@ -7,12 +7,12 @@ use std::{
 use clap::Parser;
 use config::{Config, Environment, File, FileFormat};
 use serde::Deserialize;
-use sudo_gcp::{get_access_token, get_gcloud_config, Email, Lifetime, Scopes};
+use sudo_gcp::{get_access_token, get_gcloud_config, Delegates, Email, Lifetime, Scopes};
 
 #[derive(Debug, Deserialize)]
 struct Settings {
     service_account: Email,
-    delegates: Option<Vec<Email>>,
+    delegates: Option<Delegates>,
     #[serde(default)]
     scopes: Scopes,
     #[serde(default)]

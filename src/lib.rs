@@ -6,12 +6,20 @@ use std::{
     time::Duration,
 };
 
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use keyring::Entry;
 use reqwest::{blocking::Client, header::HeaderMap};
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_OAUTH_SCOPES: &[&str] = &["https://www.googleapis.com/auth/cloud-platform"];
+const DEFAULT_OAUTH_SCOPES: &[&str] = &[
+    "openid",
+    "https://www.googleapis.com/auth/cloud-platform",
+    "profile",
+    "email",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+];
 
 const DEFAULT_LIFETIME_SECONDS: u64 = 3600;
 const IAM_API: &str = "https://iamcredentials.googleapis.com/v1";
@@ -59,6 +67,9 @@ impl FromStr for GcloudConfig {
         })
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Delegates(Vec<String>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Email(String);
@@ -177,7 +188,7 @@ pub fn get_gcloud_config() -> GcloudConfig {
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct TokenRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
-    delegates: Option<Vec<Email>>,
+    delegates: Option<Delegates>,
     lifetime: String,
     scope: Scopes,
 }
@@ -185,7 +196,7 @@ struct TokenRequest {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TokenResponse {
-    delegates: Option<Vec<Email>>,
+    delegates: Option<Delegates>,
     access_token: AccessToken,
     expire_time: DateTime<Utc>,
 }
@@ -199,7 +210,7 @@ pub struct StoredSecret {
 
 pub fn get_access_token(
     gcloud_config: &GcloudConfig,
-    delegates: Option<Vec<Email>>,
+    delegates: Option<Delegates>,
     service_account: &Email,
     lifetime: &Lifetime,
     scopes: &Scopes,
@@ -256,7 +267,7 @@ pub fn get_access_token(
 
 fn get_token_from_gcloud(
     service_account: &Email,
-    delegates: Option<Vec<Email>>,
+    delegates: Option<Delegates>,
     lifetime: &Lifetime,
     scopes: &Scopes,
     gcloud_config: &GcloudConfig,
@@ -286,12 +297,22 @@ fn get_token_from_gcloud(
         .headers(headers)
         .json(&token_request);
 
-    let response: TokenResponse = request.send()?.json()?;
+    let response = request.send()?;
+    let response_text = &response.text();
+    let response_json = &response.json::<TokenResponse>();
+    let token_response: &TokenResponse = match &response_json {
+        Ok(r) => r,
+        Err(e) => {
+            dbg!(e);
+            dbg!(&response.text());
+            return Err(anyhow!("Error parsing JSON: {}", e));
+        }
+    };
 
     Ok(StoredSecret {
-        access_token: response.access_token,
+        access_token: token_response.access_token,
         scopes: scopes.clone(),
-        expire_time: response.expire_time,
+        expire_time: token_response.expire_time,
     })
 }
 
