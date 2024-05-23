@@ -2,7 +2,7 @@
 
 # Sudo GCP
 
-This tool enables with running Google Cloud commands with temporary elevated privileges, using
+This tool enables running Google Cloud commands with temporary elevated privileges, using
 short-lived OAuth access tokens.
 
 `sudo-gcp` securely caches access tokens using the operating system's secret-store/keychain, and
