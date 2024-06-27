@@ -1,5 +1,13 @@
 service_account = "my-service-account@my-project.iam.gserviceaccount.com"
 
+# Optional delegates for delegated requests
+# See for more details https://cloud.google.com/iam/docs/create-short-lived-credentials-delegated
+
+delegates = [
+   "projects/-/serviceAccounts/delegate-sa-1@my-project.iam.gserviceaccount.com",
+   "projects/-/serviceAccounts/delegate-sa-2@my-project.iam.gserviceaccount.com"
+]
+
 # Optional scopes if not provided a default is used
 scopes = [
    "openid",

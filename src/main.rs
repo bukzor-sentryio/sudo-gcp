@@ -7,11 +7,12 @@ use std::{
 use clap::Parser;
 use config::{Config, Environment, File, FileFormat};
 use serde::Deserialize;
-use sudo_gcp::{get_access_token, get_gcloud_config, Email, Lifetime, Scopes};
+use sudo_gcp::{get_access_token, get_gcloud_config, Delegates, Email, Lifetime, Scopes};
 
 #[derive(Debug, Deserialize)]
 struct Settings {
     service_account: Email,
+    delegates: Option<Delegates>,
     #[serde(default)]
     scopes: Scopes,
     #[serde(default)]
@@ -54,10 +55,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let settings = get_settings(args.config_file)?;
 
-    let config = get_gcloud_config();
+    let config = get_gcloud_config()?;
 
     let access_token = get_access_token(
         &config,
+        settings.delegates,
         &settings.service_account,
         &settings.lifetime,
         &settings.scopes,

@@ -56,6 +56,10 @@ After [configuration](#Configuration), wrap commands that need elevated privileg
 
 Examples:
 ```sh
+# login to the gcloud CLI with your account
+gcloud auth login
+
+# run your gcloud command with sudo-gcp
 sudo-gcp gcloud compute instances list
 
 terraform plan  # error: no permission to read tfstate
